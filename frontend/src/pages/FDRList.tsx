@@ -11,6 +11,7 @@ export default function FDRList() {
   const [rows, setRows] = useState<any[] | null>(null)
   const [detail, setDetail] = useState<any | null>(null)
   const [history, setHistory] = useState<any[]>([])
+  const [qrUrl, setQrUrl] = useState<string | null>(null)
   const [filters, setFilters] = useState({
     search: '', status: '', verification_status: '', risk_level: '',
     expiring_days: '', expired: '', sort_by: 'created_at', sort_dir: 'desc',
@@ -29,6 +30,8 @@ export default function FDRList() {
     setDetail(res.data)
     const h = await api.get(`/fdrs/${f.id}/history`)
     setHistory(h.data.events)
+    const qr = await api.get(`/fdrs/${f.id}/qrcode`, { responseType: 'blob' })
+    setQrUrl(URL.createObjectURL(qr.data))
   }
 
   function requestVerification(fdrId: number) {
@@ -114,7 +117,7 @@ export default function FDRList() {
               <button onClick={() => setDetail(null)}><X size={18} /></button>
             </div>
             <div className="flex gap-4 mb-4">
-              <img src={`/api/fdrs/${detail.id}/qrcode`} alt="QR" className="w-28 h-28 border rounded-lg" />
+              {qrUrl && <img src={qrUrl} alt="QR" className="w-28 h-28 border rounded-lg" />}
               <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm flex-1">
                 <span className="text-slate-500">Institution</span><span className="font-medium">{detail.institution_name}</span>
                 <span className="text-slate-500">Bank</span><span className="font-medium">{detail.bank_name}</span>

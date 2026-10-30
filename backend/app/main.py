@@ -30,6 +30,10 @@ for r in (auth.router, institutions.router, fdrs.router, verification.router,
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
+    if settings.SEED_DEMO:
+        from .seed import seed
+        if seed():
+            print("Seeded DEMO/SYNTHETIC dataset")
     db = SessionLocal()
     try:
         run_maturity_scan(db)

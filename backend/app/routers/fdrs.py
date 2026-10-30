@@ -214,7 +214,7 @@ async def upload_document(file: UploadFile = File(...),
     extraction = extract_document(path)
     doc = FDRDocument(
         fdr_id=fdr_id, uploaded_by_id=user.id, filename=file.filename,
-        stored_path=path, content_type=file.content_type,
+        stored_path=path, content=content, content_type=file.content_type,
         extracted_data=json.dumps(extraction),
         extraction_status="mock" if extraction["mock"] else "done",
     )
@@ -240,10 +240,15 @@ def get_extraction(doc_id: int, db: Session = Depends(get_db),
 def download_document(doc_id: int, db: Session = Depends(get_db),
                       user: User = Depends(get_current_user)):
     doc = db.get(FDRDocument, doc_id)
-    if not doc or not os.path.exists(doc.stored_path):
+    if not doc:
         raise HTTPException(404, "Document not found")
-    with open(doc.stored_path, "rb") as fh:
-        data = fh.read()
+    if os.path.exists(doc.stored_path):
+        with open(doc.stored_path, "rb") as fh:
+            data = fh.read()
+    elif doc.content:
+        data = doc.content
+    else:
+        raise HTTPException(404, "Document file not found")
     return StreamingResponse(io.BytesIO(data), media_type=doc.content_type or "application/octet-stream",
                              headers={"Content-Disposition": f'inline; filename="{doc.filename}"'})
 

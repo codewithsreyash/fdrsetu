@@ -4,7 +4,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
   PieChart, Pie, Cell, Legend,
 } from 'recharts'
-import api from '../api'
+import api, { API_BASE } from '../api'
 import { Card, Spinner, btnPrimary } from '../components'
 
 const COLORS = ['#2563EB', '#16A34A', '#F59E0B', '#EF4444', '#8B5CF6']
@@ -17,7 +17,7 @@ export default function Reports() {
 
   const download = (path: string) => {
     const token = localStorage.getItem('fdrsetu_token')
-    fetch(`/api${path}`, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.blob())
       .then((blob) => {
         const a = document.createElement('a')

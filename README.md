@@ -97,5 +97,36 @@ cd ../frontend && npm install && npm run dev
 `GET/POST/PUT /fdrs` · `POST /fdrs/documents/upload` · `GET /fdrs/{id}/qrcode|history` ·
 `GET/POST /verification/requests` · `GET /verification/bank-lookup/{no}` · `POST /verification/bank-verify` ·
 `GET/POST /risk/alerts|scan` · `GET /maturity/upcoming|expired|renewals` · `POST /maturity/scan|renewals` ·
-`GET/POST /releases` · `POST /releases/{id}/action` · `POST /copilot/ask` ·
+`GET/POST /releases` · `POST /releases/{id}/action` · `GET /releases/{id}/document` · `POST /copilot/ask` ·
 `GET /reports/fdrs.xlsx|fdrs.pdf` · `GET /users` (admin) · `GET /audit-logs` · `GET /notifications`
+
+
+## Deploy — Render (API + Postgres) + Vercel (frontend)
+
+`render.yaml` is a ready Blueprint: a free web service (`fdrsetu-api`) plus a free
+managed Postgres (`fdrsetu-db`), with `DATABASE_URL` and `JWT_SECRET` wired
+automatically and `SEED_DEMO=true` so the demo dataset loads on first boot.
+
+```bash
+# 1. Push this repo to GitHub (public is simplest for Render)
+# 2. Render dashboard -> New -> Blueprint -> pick the repo -> Apply
+# 3. Wait for fdrsetu-api to go live -> copy its URL, e.g.
+#    https://fdrsetu-api.onrender.com  (health: /api/health)
+# 4. Deploy the frontend:
+cd frontend
+vercel deploy --prod \
+  --build-env VITE_API_URL=https://fdrsetu-api.onrender.com/api
+# 5. Optional hardening: set CORS_ORIGINS=https://your-app.vercel.app on Render
+```
+
+Notes:
+- Render **free tier**: web service sleeps after ~15 min idle (first request ~30-60 s);
+  free Postgres is time-limited - fine for demos, upgrade for anything real.
+- The container filesystem is ephemeral. Uploaded documents are therefore also
+  stored in Postgres (`fdr_documents.content`) and served from there when the
+  file is gone - redeploys never lose documents. A Render Disk (paid plan) can
+  replace this; see `render.yaml` comments.
+- `SEED_DEMO=true` seeds the demo dataset only when the DB is empty, so
+  restarts/redeploys won't duplicate data.
+- Tesseract isn't installed on Render - image scans fall back to mock extraction
+  (text PDFs still parse via PyMuPDF).

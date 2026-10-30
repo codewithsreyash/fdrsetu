@@ -1,6 +1,8 @@
+import io
 import os
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -25,7 +27,7 @@ def release_out(r: ReleaseRequest) -> dict:
         "bank": r.fdr.bank.name if r.fdr and r.fdr.bank else None,
         "maturity_date": str(r.fdr.maturity_date) if r.fdr else None,
         "reason": r.reason, "status": r.status.value,
-        "has_document": bool(r.supporting_doc_path),
+        "has_document": bool(r.supporting_doc_path or r.supporting_doc_bytes),
         "created_at": r.created_at.isoformat(),
         "updated_at": r.updated_at.isoformat() if r.updated_at else None,
     }
@@ -61,17 +63,22 @@ def create_release(fdr_id: int = Form(...), reason: str = Form(""),
         raise HTTPException(400, "A release request is already pending for this FDR")
 
     path = None
+    doc_bytes = None
     if file and file.filename:
         ext = os.path.splitext(file.filename)[1].lower()
         if ext not in (".pdf", ".jpg", ".jpeg", ".png"):
             raise HTTPException(400, "Supporting document must be PDF/JPG/PNG")
         os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
         path = os.path.join(settings.UPLOAD_DIR, f"rel-{uuid.uuid4().hex}{ext}")
+        doc_bytes = file.file.read()
         with open(path, "wb") as fh:
-            fh.write(file.file.read())
+            fh.write(doc_bytes)
 
     r = ReleaseRequest(fdr_id=fdr_id, institution_id=user.institution_id,
-                       reason=reason, supporting_doc_path=path)
+                       reason=reason, supporting_doc_path=path,
+                       supporting_doc_bytes=doc_bytes,
+                       supporting_doc_name=file.filename if file else None,
+                       supporting_doc_type=file.content_type if file else None)
     db.add(r)
     db.add(Notification(
         role="officer", title="New release request",
@@ -120,6 +127,28 @@ def officer_action(release_id: int, body: OfficerAction, db: Session = Depends(g
         raise HTTPException(400, "action must be under_review|approved|rejected|observation")
     db.commit()
     return release_out(r)
+
+
+@router.get("/{release_id}/document")
+def release_document(release_id: int, db: Session = Depends(get_db),
+                     user: User = Depends(get_current_user)):
+    r = db.get(ReleaseRequest, release_id)
+    if not r:
+        raise HTTPException(404, "Release request not found")
+    if user.role == Role.institution and r.institution_id != user.institution_id:
+        raise HTTPException(403, "Access denied")
+    data = None
+    if r.supporting_doc_path and os.path.exists(r.supporting_doc_path):
+        with open(r.supporting_doc_path, "rb") as fh:
+            data = fh.read()
+    elif r.supporting_doc_bytes:
+        data = r.supporting_doc_bytes
+    if data is None:
+        raise HTTPException(404, "No supporting document")
+    return StreamingResponse(
+        io.BytesIO(data), media_type=r.supporting_doc_type or "application/octet-stream",
+        headers={"Content-Disposition":
+                 f'inline; filename="{r.supporting_doc_name or "document"}"'})
 
 
 @router.get("/{release_id}/history")

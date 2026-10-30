@@ -1,7 +1,7 @@
 from datetime import datetime, date
 from sqlalchemy import (
     Column, Integer, String, DateTime, Date, Numeric, Boolean, ForeignKey,
-    Text, Enum as SAEnum, UniqueConstraint,
+    Text, LargeBinary, Enum as SAEnum, UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 import enum
@@ -125,6 +125,7 @@ class FDRDocument(Base):
     uploaded_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     filename = Column(String(255), nullable=False)
     stored_path = Column(String(512), nullable=False)
+    content = Column(LargeBinary, nullable=True)   # raw bytes (survives ephemeral FS)
     content_type = Column(String(64))
     extracted_data = Column(Text)          # JSON string of OCR result
     extraction_status = Column(String(32), default="pending")  # pending/done/failed/mock
@@ -212,6 +213,9 @@ class ReleaseRequest(Base):
     reason = Column(Text)
     status = Column(SAEnum(ReleaseStatus), default=ReleaseStatus.pending)
     supporting_doc_path = Column(String(512), nullable=True)
+    supporting_doc_bytes = Column(LargeBinary, nullable=True)
+    supporting_doc_name = Column(String(255), nullable=True)
+    supporting_doc_type = Column(String(64), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

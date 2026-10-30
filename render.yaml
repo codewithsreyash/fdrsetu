@@ -1,0 +1,46 @@
+# FDRSETU — Render Blueprint (backend + managed Postgres)
+# Deploy: Render dashboard → New → Blueprint → select this repo.
+# Or via API once the repo is public.
+#
+# Notes:
+# - Free web services sleep after ~15 min idle (first hit takes ~30-60s).
+# - Free Postgres expires on Render's free plan — fine for a demo.
+# - The filesystem is ephemeral: uploaded documents are ALSO stored in
+#   Postgres (fdr_documents.content), so redeploys don't lose them.
+#   To use a persistent disk instead, add a `disk` block (paid plan only):
+#     disk:
+#       name: fdrsetu-uploads
+#       mountPath: /opt/render/project/src/uploads
+#       sizeGB: 1
+
+databases:
+  - name: fdrsetu-db
+    databaseName: fdrsetu
+    user: fdrsetu
+    plan: free
+
+services:
+  - type: web
+    name: fdrsetu-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fdrsetu-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SEED_DEMO
+        value: "true"
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: UPLOAD_DIR
+        value: /opt/render/project/src/uploads
+      - key: MOCK_BANK_API
+        value: "true"
