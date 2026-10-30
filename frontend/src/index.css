@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy: #123B65;
+  --color-royal: #2563EB;
+  --color-sky-light: #EAF3FF;
+  --color-gov-green: #16A34A;
+  --color-panel: #F4F6F9;
+}
+
+body {
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  background: #F4F6F9;
+}
